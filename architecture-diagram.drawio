@@ -1,0 +1,188 @@
+<mxfile host="app.diagrams.net" modified="2026-06-28T00:00:00.000Z" agent="Claude" version="24.7.0" type="device">
+  <diagram id="s3-files-architecture" name="S3 Files Architecture">
+    <mxGraphModel dx="1422" dy="794" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- VPC Container -->
+        <mxCell id="vpc" value="Amazon VPC" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=1;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_vpc2;strokeColor=#8C4FFF;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#AAB7B8;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="100" y="120" width="900" height="440" as="geometry" />
+        </mxCell>
+
+        <!-- Availability Zone A -->
+        <mxCell id="az-a" value="Availability Zone A" style="fillColor=none;strokeColor=#147EBA;dashed=1;verticalAlign=top;fontStyle=1;fontColor=#147EBA;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="130" y="160" width="400" height="380" as="geometry" />
+        </mxCell>
+
+        <!-- Private Subnet A -->
+        <mxCell id="subnet-a" value="Private subnet" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=11;fontStyle=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_subnet;strokeColor=#248814;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#AAB7B8;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="150" y="195" width="360" height="330" as="geometry" />
+        </mxCell>
+
+        <!-- Availability Zone B -->
+        <mxCell id="az-b" value="Availability Zone B" style="fillColor=none;strokeColor=#147EBA;dashed=1;verticalAlign=top;fontStyle=1;fontColor=#147EBA;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="570" y="160" width="400" height="380" as="geometry" />
+        </mxCell>
+
+        <!-- Private Subnet B -->
+        <mxCell id="subnet-b" value="Private subnet" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=11;fontStyle=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_subnet;strokeColor=#248814;fillColor=none;verticalAlign=top;align=left;spacingLeft=30;fontColor=#AAB7B8;dashed=0;" vertex="1" parent="1">
+          <mxGeometry x="590" y="195" width="360" height="330" as="geometry" />
+        </mxCell>
+
+        <!-- EC2 Instance A -->
+        <mxCell id="ec2-a" value="Amazon EC2" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#ED7100;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ec2;" vertex="1" parent="1">
+          <mxGeometry x="200" y="240" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- ECS Fargate A -->
+        <mxCell id="ecs-a" value="Amazon ECS&#xa;(Fargate)" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#ED7100;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ecs;" vertex="1" parent="1">
+          <mxGeometry x="320" y="240" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- EC2 Instance B -->
+        <mxCell id="ec2-b" value="Amazon EC2" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#ED7100;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ec2;" vertex="1" parent="1">
+          <mxGeometry x="640" y="240" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- Lambda B -->
+        <mxCell id="lambda-b" value="AWS Lambda" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#ED7100;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" vertex="1" parent="1">
+          <mxGeometry x="760" y="240" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- Security Group A -->
+        <mxCell id="sg-a" value="Security&#xa;group" style="fontStyle=0;verticalAlign=top;align=center;spacingTop=-2;fillColor=none;strokeColor=#DD3522;verticalLabelPosition=bottom;html=1;fontSize=10;fontColor=#DD3522;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.security_group;labelPosition=center;" vertex="1" parent="1">
+          <mxGeometry x="170" y="365" width="30" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Mount Target A (ENI) -->
+        <mxCell id="mt-a" value="Mount Target A&#xa;(TCP 2049)" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.elastic_network_interface;" vertex="1" parent="1">
+          <mxGeometry x="270" y="370" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- Security Group B -->
+        <mxCell id="sg-b" value="Security&#xa;group" style="fontStyle=0;verticalAlign=top;align=center;spacingTop=-2;fillColor=none;strokeColor=#DD3522;verticalLabelPosition=bottom;html=1;fontSize=10;fontColor=#DD3522;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.security_group;labelPosition=center;" vertex="1" parent="1">
+          <mxGeometry x="610" y="365" width="30" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Mount Target B (ENI) -->
+        <mxCell id="mt-b" value="Mount Target B&#xa;(TCP 2049)" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#8C4FFF;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.elastic_network_interface;" vertex="1" parent="1">
+          <mxGeometry x="710" y="370" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- S3 File System -->
+        <mxCell id="s3-files" value="Amazon S3 Files&#xa;(NFS v4.1+ File System)" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#3F8624;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=1;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;" vertex="1" parent="1">
+          <mxGeometry x="466" y="620" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- S3 Bucket -->
+        <mxCell id="s3-bucket" value="Amazon S3 Bucket&#xa;(General Purpose)" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#3F8624;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;" vertex="1" parent="1">
+          <mxGeometry x="466" y="770" width="60" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- KMS -->
+        <mxCell id="kms" value="AWS KMS&#xa;(Encryption)" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD344C;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.kms;" vertex="1" parent="1">
+          <mxGeometry x="130" y="630" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- IAM -->
+        <mxCell id="iam" value="AWS IAM&#xa;(Policies)" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#DD344C;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.iam;" vertex="1" parent="1">
+          <mxGeometry x="270" y="770" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- CloudWatch -->
+        <mxCell id="cloudwatch" value="Amazon&#xa;CloudWatch" style="outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#E7157B;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudwatch;" vertex="1" parent="1">
+          <mxGeometry x="820" y="630" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- NFS Connections from compute to mount targets -->
+        <!-- EC2-A to MT-A -->
+        <mxCell id="edge-ec2a-mta" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#248814;strokeWidth=2;" edge="1" source="ec2-a" target="mt-a" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-ec2a-mta-label" value="NFS" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=10;fontColor=#248814;" vertex="1" connectable="0" parent="edge-ec2a-mta">
+          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- ECS-A to MT-A -->
+        <mxCell id="edge-ecsa-mta" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#248814;strokeWidth=2;" edge="1" source="ecs-a" target="mt-a" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-ecsa-mta-label" value="NFS" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=10;fontColor=#248814;" vertex="1" connectable="0" parent="edge-ecsa-mta">
+          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- EC2-B to MT-B -->
+        <mxCell id="edge-ec2b-mtb" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#248814;strokeWidth=2;" edge="1" source="ec2-b" target="mt-b" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-ec2b-mtb-label" value="NFS" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=10;fontColor=#248814;" vertex="1" connectable="0" parent="edge-ec2b-mtb">
+          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- Lambda-B to MT-B -->
+        <mxCell id="edge-lamb-mtb" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeColor=#248814;strokeWidth=2;" edge="1" source="lambda-b" target="mt-b" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-lamb-mtb-label" value="NFS" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=10;fontColor=#248814;" vertex="1" connectable="0" parent="edge-lamb-mtb">
+          <mxGeometry x="-0.2" relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- Mount Target A to S3 File System -->
+        <mxCell id="edge-mta-s3files" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.25;entryY=0;entryDx=0;entryDy=0;strokeColor=#0073BB;strokeWidth=2;" edge="1" source="mt-a" target="s3-files" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Mount Target B to S3 File System -->
+        <mxCell id="edge-mtb-s3files" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;strokeColor=#0073BB;strokeWidth=2;" edge="1" source="mt-b" target="s3-files" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- S3 File System to S3 Bucket (bidirectional sync) -->
+        <mxCell id="edge-sync-down" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;exitX=0.35;exitY=1;exitDx=0;exitDy=0;entryX=0.35;entryY=0;entryDx=0;entryDy=0;strokeColor=#8C4FFF;strokeWidth=2;" edge="1" source="s3-files" target="s3-bucket" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-sync-down-label" value="Sync to S3" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=10;fontColor=#8C4FFF;" vertex="1" connectable="0" parent="edge-sync-down">
+          <mxGeometry x="0.2" relative="1" as="geometry"><mxPoint x="-30" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <mxCell id="edge-sync-up" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;exitX=0.65;exitY=0;exitDx=0;exitDy=0;entryX=0.65;entryY=1;entryDx=0;entryDy=0;strokeColor=#8C4FFF;strokeWidth=2;" edge="1" source="s3-bucket" target="s3-files" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-sync-up-label" value="Sync from S3" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=10;fontColor=#8C4FFF;" vertex="1" connectable="0" parent="edge-sync-up">
+          <mxGeometry x="0.2" relative="1" as="geometry"><mxPoint x="35" as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- KMS to S3 File System -->
+        <mxCell id="edge-kms" style="rounded=1;orthogonalLoop=1;strokeColor=#DD344C;strokeWidth=1;dashed=1;" edge="1" source="kms" target="s3-files" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-kms-label" value="Encryption" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontColor=#DD344C;" vertex="1" connectable="0" parent="edge-kms">
+          <mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- IAM to S3 File System -->
+        <mxCell id="edge-iam" style="rounded=1;orthogonalLoop=1;strokeColor=#DD344C;strokeWidth=1;dashed=1;" edge="1" source="iam" target="s3-files" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-iam-label" value="Access Control" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontColor=#DD344C;" vertex="1" connectable="0" parent="edge-iam">
+          <mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- CloudWatch to S3 File System -->
+        <mxCell id="edge-cw" style="rounded=1;orthogonalLoop=1;strokeColor=#E7157B;strokeWidth=1;dashed=1;" edge="1" source="cloudwatch" target="s3-files" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-cw-label" value="Monitoring" style="edgeLabel;html=1;align=center;verticalAlign=middle;fontSize=9;fontColor=#E7157B;" vertex="1" connectable="0" parent="edge-cw">
+          <mxGeometry relative="1" as="geometry"><mxPoint as="offset" /></mxGeometry>
+        </mxCell>
+
+        <!-- Title -->
+        <mxCell id="title" value="Figure 1: Amazon S3 Files — Terraform Deployment Architecture" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=13;fontStyle=1;fontColor=#232F3E;" vertex="1" parent="1">
+          <mxGeometry x="250" y="860" width="500" height="30" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

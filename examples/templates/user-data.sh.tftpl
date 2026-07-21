@@ -1,0 +1,24 @@
+#!/bin/bash
+set -euo pipefail
+
+# Install amazon-efs-utils (required for S3 Files mount helper)
+# The mount helper handles TLS, IAM auth, and optimal NFS settings automatically.
+dnf install -y amazon-efs-utils nfs-utils
+
+mkdir -p ${mount_point}
+
+# Option 1: Mount using the mount helper (RECOMMENDED)
+# The mount helper automatically uses NFS v4.2, TLS, IAM auth, and optimal settings.
+# It also emits CloudWatch connectivity metrics to efs-utils/S3Files namespace.
+mount -t efs -o tls,iam ${file_system_id}:/ ${mount_point}
+
+# Persist the mount across reboots
+echo "${file_system_id}:/ ${mount_point} efs _netdev,tls,iam 0 0" >> /etc/fstab
+
+# Option 2: Mount using standard NFS (if not using mount helper)
+# Note: NFS v4.2 is required for S3 Files. Do NOT use nfsvers=4.1.
+# mount -t nfs4 \
+#   -o nfsvers=4.2,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport \
+#   ${file_system_dns}:/ ${mount_point}
+#
+# echo "${file_system_dns}:/ ${mount_point} nfs4 nfsvers=4.2,rsize=1048576,wsize=1048576,hard,timeo=600,retrans=2,noresvport,_netdev 0 0" >> /etc/fstab
