@@ -4,14 +4,17 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 6.40.0"
+      version = ">= 6.53.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = ">= 3.0"
     }
   }
 }
 
 provider "aws" {
-  region  = var.aws_region
-  profile = "optima-desktop"
+  region = var.aws_region
 
   default_tags {
     tags = {
@@ -22,31 +25,49 @@ provider "aws" {
   }
 }
 
-# ------------------------------------------------------------------------------
-# VPC Data Sources (using existing VPC)
-# ------------------------------------------------------------------------------
-
-data "aws_vpc" "selected" {
-  id = var.vpc_id
-}
-
-data "aws_subnets" "private" {
-  filter {
-    name   = "vpc-id"
-    values = [var.vpc_id]
-  }
-  filter {
-    name   = "map-public-ip-on-launch"
-    values = ["false"]
-  }
+data "aws_caller_identity" "current" {}
+data "aws_availability_zones" "available" {
+  state = "available"
 }
 
 # ------------------------------------------------------------------------------
-# S3 Bucket (create for testing)
+# VPC (self-contained — no external dependencies)
 # ------------------------------------------------------------------------------
+
+resource "aws_vpc" "this" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
+  enable_dns_hostnames = true
+
+  tags = {
+    Name = "s3files-dev-vpc"
+  }
+}
+
+resource "aws_subnet" "private" {
+  count = 2
+
+  vpc_id            = aws_vpc.this.id
+  cidr_block        = cidrsubnet(aws_vpc.this.cidr_block, 8, count.index)
+  availability_zone = data.aws_availability_zones.available.names[count.index]
+
+  map_public_ip_on_launch = false
+
+  tags = {
+    Name = "s3files-dev-private-${data.aws_availability_zones.available.names[count.index]}"
+  }
+}
+
+# ------------------------------------------------------------------------------
+# S3 Bucket (created for testing)
+# ------------------------------------------------------------------------------
+
+resource "random_id" "bucket" {
+  byte_length = 8
+}
 
 resource "aws_s3_bucket" "test" {
-  bucket_prefix = "s3files-blog-dev-"
+  bucket        = "s3files-blog-dev-${random_id.bucket.hex}"
   force_destroy = true
 }
 
@@ -58,7 +79,7 @@ resource "aws_s3_bucket_versioning" "test" {
 }
 
 # ------------------------------------------------------------------------------
-# IAM Role for S3 Files Service
+# IAM Role for S3 Files Service (sync and change detection)
 # ------------------------------------------------------------------------------
 
 resource "aws_iam_role" "s3files_service" {
@@ -74,7 +95,6 @@ resource "aws_iam_role" "s3files_service" {
   })
 }
 
-# S3 permissions for sync
 resource "aws_iam_role_policy" "s3files_s3_access" {
   name = "s3-access"
   role = aws_iam_role.s3files_service.id
@@ -83,9 +103,9 @@ resource "aws_iam_role_policy" "s3files_s3_access" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "BucketAccess"
-        Effect = "Allow"
-        Action = ["s3:ListBucket*"]
+        Sid      = "BucketAccess"
+        Effect   = "Allow"
+        Action   = ["s3:ListBucket*"]
         Resource = [aws_s3_bucket.test.arn]
       },
       {
@@ -104,7 +124,6 @@ resource "aws_iam_role_policy" "s3files_s3_access" {
   })
 }
 
-# EventBridge permissions for change detection
 resource "aws_iam_role_policy" "s3files_eventbridge" {
   name = "eventbridge-access"
   role = aws_iam_role.s3files_service.id
@@ -123,13 +142,13 @@ resource "aws_iam_role_policy" "s3files_eventbridge" {
           "events:PutTargets",
           "events:RemoveTargets"
         ]
-        Resource = ["arn:aws:events:${var.aws_region}:*:rule/DO-NOT-DELETE-S3-Files*"]
+        Resource = ["arn:aws:events:${var.aws_region}:${data.aws_caller_identity.current.account_id}:rule/DO-NOT-DELETE-S3-Files*"]
       },
       {
         Sid      = "EventBridgeList"
         Effect   = "Allow"
         Action   = ["events:ListRules"]
-        Resource = ["*"]
+        Resource = ["arn:aws:events:${var.aws_region}:${data.aws_caller_identity.current.account_id}:rule/*"]
       }
     ]
   })
@@ -142,14 +161,13 @@ resource "aws_iam_role_policy" "s3files_eventbridge" {
 resource "aws_security_group" "compute" {
   name_prefix = "s3files-dev-compute-"
   description = "Security group for compute resources accessing S3 Files"
-  vpc_id      = var.vpc_id
+  vpc_id      = aws_vpc.this.id
 
   tags = {
     Name = "s3files-dev-compute-sg"
   }
 }
 
-# Egress rule added after module creates the FS security group
 resource "aws_vpc_security_group_egress_rule" "compute_to_fs" {
   security_group_id            = aws_security_group.compute.id
   referenced_security_group_id = module.s3_files.security_group_id
@@ -171,14 +189,14 @@ module "s3_files" {
   environment = "dev"
   bucket_arn  = aws_s3_bucket.test.arn
   role_arn    = aws_iam_role.s3files_service.arn
-  vpc_id      = var.vpc_id
-  subnet_ids  = length(var.private_subnet_ids) > 0 ? var.private_subnet_ids : slice(data.aws_subnets.private.ids, 0, min(2, length(data.aws_subnets.private.ids)))
+  vpc_id      = aws_vpc.this.id
+  subnet_ids  = aws_subnet.private[*].id
 
   compute_security_group_ids = [aws_security_group.compute.id]
 
   # Required for Lambda IAM policy condition constraints
-  vpc_arn             = data.aws_vpc.selected.arn
-  private_subnet_arns = [for s in var.private_subnet_ids : "arn:aws:ec2:${var.aws_region}:*:subnet/${s}"]
+  vpc_arn             = aws_vpc.this.arn
+  private_subnet_arns = aws_subnet.private[*].arn
 
   # Dev uses SSE-S3 (no KMS key)
   kms_key_arn = null
@@ -218,4 +236,8 @@ output "mount_command" {
 
 output "security_group_id" {
   value = module.s3_files.security_group_id
+}
+
+output "vpc_id" {
+  value = aws_vpc.this.id
 }

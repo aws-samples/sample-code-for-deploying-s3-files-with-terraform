@@ -8,19 +8,14 @@ output "file_system_arn" {
   value       = aws_s3files_file_system.this.arn
 }
 
-output "file_system_dns_name" {
-  description = "DNS name for the file system (derived from mount target IPs — use mount helper with file_system_id instead)"
-  value       = null # dns_name not exported by provider; use mount helper with file_system_id
-}
-
 output "mount_target_ids" {
   description = "Map of subnet ID to mount target ID"
-  value       = { for k, v in aws_s3files_mount_target.this : k => v.id }
+  value       = { for i, mt in aws_s3files_mount_target.this : var.subnet_ids[i] => mt.id }
 }
 
 output "mount_target_ips" {
   description = "Map of subnet ID to mount target IPv4 address"
-  value       = { for k, v in aws_s3files_mount_target.this : k => v.ipv4_address }
+  value       = { for i, mt in aws_s3files_mount_target.this : var.subnet_ids[i] => mt.ipv4_address }
 }
 
 output "security_group_id" {
@@ -55,10 +50,5 @@ output "lambda_iam_policy_arn" {
 
 output "mount_helper_command" {
   description = "Mount command using amazon-efs-utils mount helper (recommended for EC2)"
-  value       = "sudo mount -t efs -o tls,iam ${aws_s3files_file_system.this.id}:/ /mnt/s3files"
-}
-
-output "nfs_mount_command" {
-  description = "Mount command using mount helper (recommended — handles TLS, IAM, and optimal settings)"
   value       = "sudo mount -t efs -o tls,iam ${aws_s3files_file_system.this.id}:/ /mnt/s3files"
 }

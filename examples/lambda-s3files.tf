@@ -82,6 +82,7 @@ resource "aws_iam_role_policy_attachment" "lambda_vpc" {
 }
 
 # Optional: For direct S3 reads on large files (>=1 MiB), add s3:GetObject
+# Replace the bucket ARN below with your actual bucket ARN
 resource "aws_iam_role_policy" "lambda_s3_direct_read" {
   name = "s3-direct-read"
   role = aws_iam_role.lambda_s3files.id
@@ -95,7 +96,7 @@ resource "aws_iam_role_policy" "lambda_s3_direct_read" {
         "s3:GetObject",
         "s3:GetObjectVersion",
       ]
-      Resource = "arn:aws:s3:::${var.bucket_name}/*"
+      Resource = "${var.bucket_arn}/*"
     }]
   })
 }

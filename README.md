@@ -18,7 +18,7 @@ The module deploys the following resources:
 
 - AWS account with permissions to create S3 Files, VPC, IAM, and KMS resources
 - [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.5.0
-- [AWS provider](https://registry.terraform.io/providers/hashicorp/aws/latest) >= 6.40.0
+- [AWS provider](https://registry.terraform.io/providers/hashicorp/aws/latest) >= 6.53.0
 - An existing S3 general purpose bucket
 - A VPC with private subnets in at least two Availability Zones
 
@@ -28,28 +28,29 @@ The module deploys the following resources:
 .
 ├── modules/
 │   └── s3-files/
-│       ├── main.tf            # File system, mount targets, security groups, sync, access points
+│       ├── main.tf            # File system, mount targets, security groups, access points
 │       ├── iam.tf             # IAM policies for EC2, ECS, Lambda
 │       ├── monitoring.tf      # CloudWatch alarms and dashboard
 │       ├── variables.tf       # Input variables with validation
 │       └── outputs.tf         # Exported values
 ├── environments/
 │   ├── dev/
-│   │   ├── main.tf           # Dev environment configuration (SSE-S3)
-│   │   ├── variables.tf
-│   │   └── terraform.tfvars  # Dev-specific values
+│   │   ├── main.tf           # Dev environment (self-contained with VPC, bucket, IAM)
+│   │   └── variables.tf
 │   └── prod/
-│       ├── main.tf           # Prod environment configuration (KMS)
+│       ├── main.tf           # Prod environment configuration (KMS, existing VPC)
 │       └── variables.tf
 ├── examples/
-│   ├── ec2-mount.tf          # EC2 instance with NFS mount
-│   ├── ecs-mount.tf          # ECS Fargate task with volume
-│   ├── lambda-mount.tf       # Lambda with file_system_config
+│   ├── ec2-s3files.tf         # EC2 instance with mount helper
+│   ├── ecs-s3files.tf         # ECS Fargate task with S3 Files volume
+│   ├── lambda-s3files.tf      # Lambda with file_system_config
 │   ├── templates/
-│   │   └── user-data.sh.tftpl
+│   │   └── user-data.sh.tftpl # EC2 user data with mount helper
 │   └── lambda-src/
-│       └── index.py          # Sample Lambda handler
-└── blog-post.md              # Accompanying blog post
+│       └── index.py           # Sample Lambda handler
+├── architecture-diagram.drawio # Architecture diagram (editable)
+├── architecture-diagram.png    # Architecture diagram (rendered)
+└── blog-post.md               # Accompanying blog post
 ```
 
 ## Quick Start
@@ -59,11 +60,14 @@ The module deploys the following resources:
 ```bash
 cd environments/dev
 
-# Update terraform.tfvars with your values
 terraform init
 terraform plan
 terraform apply
 ```
+
+The dev environment is fully self-contained — it creates its own VPC, subnets, S3 bucket, and IAM roles. No configuration required.
+
+> **Note:** Configure AWS credentials before running. Use `aws configure`, set `AWS_PROFILE`, or any [standard authentication method](https://registry.terraform.io/providers/hashicorp/aws/latest/docs#authentication-and-configuration).
 
 ### 2. Mount on an EC2 instance
 
@@ -84,7 +88,8 @@ module "s3_files" {
   source = "./modules/s3-files"
 
   environment = "prod"
-  bucket_name = "my-application-bucket"
+  bucket_arn  = aws_s3_bucket.data.arn
+  role_arn    = aws_iam_role.s3files_service.arn
   vpc_id      = "vpc-0abc123def456789a"
   subnet_ids  = ["subnet-aaa111", "subnet-bbb222"]
 
@@ -116,15 +121,19 @@ module "s3_files" {
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|----------|
 | `environment` | Environment name (dev, staging, prod) | `string` | — | yes |
-| `bucket_name` | Existing S3 bucket name | `string` | — | yes |
+| `bucket_arn` | ARN of existing S3 bucket | `string` | — | yes |
+| `role_arn` | IAM role ARN for S3 Files sync (must trust elasticfilesystem.amazonaws.com) | `string` | — | yes |
 | `vpc_id` | VPC ID for mount targets | `string` | — | yes |
 | `subnet_ids` | Private subnet IDs (one per AZ) | `list(string)` | — | yes |
 | `compute_security_group_ids` | SG IDs of compute resources | `list(string)` | — | yes |
 | `kms_key_arn` | KMS key ARN (null = SSE-S3) | `string` | `null` | no |
+| `prefix` | S3 prefix to scope file system access | `string` | `null` | no |
 | `enable_sync_to_s3` | Enable file system → S3 sync | `bool` | `true` | no |
 | `enable_sync_from_s3` | Enable S3 → file system sync | `bool` | `true` | no |
 | `access_points` | Map of access point configurations | `map(object)` | `{}` | no |
 | `allowed_principal_arns` | IAM principals for file system policy | `list(string)` | `[]` | no |
+| `vpc_arn` | VPC ARN (for Lambda ENI constraint) | `string` | `null` | no |
+| `private_subnet_arns` | Subnet ARNs (for Lambda ENI constraint) | `list(string)` | `[]` | no |
 | `tags` | Additional tags for all resources | `map(string)` | `{}` | no |
 
 ## Outputs
@@ -133,7 +142,6 @@ module "s3_files" {
 |------|-------------|
 | `file_system_id` | ID of the S3 file system |
 | `file_system_arn` | ARN of the S3 file system |
-| `file_system_dns_name` | DNS name for NFS mount commands |
 | `mount_target_ids` | Map of subnet ID → mount target ID |
 | `mount_target_ips` | Map of subnet ID → mount target IP |
 | `security_group_id` | Security group ID for mount targets |
@@ -142,7 +150,7 @@ module "s3_files" {
 | `ec2_iam_policy_arn` | IAM policy ARN for EC2 instances |
 | `ecs_iam_policy_arn` | IAM policy ARN for ECS tasks |
 | `lambda_iam_policy_arn` | IAM policy ARN for Lambda functions |
-| `mount_command` | Ready-to-use NFS mount command |
+| `mount_helper_command` | Ready-to-use mount command (recommended) |
 
 ## Security
 

@@ -4,8 +4,8 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "bucket_name" {
-  description = "S3 bucket name to expose as a file system"
+variable "bucket_arn" {
+  description = "ARN of the S3 bucket to expose as a file system"
   type        = string
 }
 

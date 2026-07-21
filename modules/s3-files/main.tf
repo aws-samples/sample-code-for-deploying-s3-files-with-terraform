@@ -3,7 +3,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 6.40.0"
+      version = ">= 6.53.0"
     }
   }
 }
@@ -86,10 +86,10 @@ resource "aws_vpc_security_group_egress_rule" "deny_all" {
 # ------------------------------------------------------------------------------
 
 resource "aws_s3files_mount_target" "this" {
-  for_each = toset(var.subnet_ids)
+  count = length(var.subnet_ids)
 
   file_system_id  = aws_s3files_file_system.this.id
-  subnet_id       = each.value
+  subnet_id       = var.subnet_ids[count.index]
   security_groups = [aws_security_group.file_system.id]
 }
 
