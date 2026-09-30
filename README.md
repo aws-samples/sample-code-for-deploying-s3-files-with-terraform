@@ -10,7 +10,7 @@ The module deploys the following resources:
 - Mount targets in private subnets (one per Availability Zone)
 - Security groups restricting NFS access (TCP 2049) to specified compute resources
 - IAM policies for EC2, ECS, and Lambda with least-privilege permissions
-- Synchronization configuration for bidirectional S3 sync
+- Synchronization configuration (import and expiration rules)
 - Access points for scoped, per-application access
 - CloudWatch alarms and dashboard for operational visibility
 
@@ -18,8 +18,8 @@ The module deploys the following resources:
 
 - AWS account with permissions to create S3 Files, VPC, IAM, and KMS resources
 - [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.5.0
-- [AWS provider](https://registry.terraform.io/providers/hashicorp/aws/latest) >= 6.53.0
-- An existing S3 general purpose bucket
+- [AWS provider](https://registry.terraform.io/providers/hashicorp/aws/latest) >= 6.53.0 (tested with 6.66.0)
+- An S3 general purpose bucket with versioning enabled
 - A VPC with private subnets in at least two Availability Zones
 
 ## Repository Structure
@@ -50,7 +50,9 @@ The module deploys the following resources:
 │       └── index.py           # Sample Lambda handler
 ├── architecture-diagram.drawio # Architecture diagram (editable)
 ├── architecture-diagram.png    # Architecture diagram (rendered)
-└── blog-post.md               # Accompanying blog post
+├── CONTRIBUTING.md
+├── CODE_OF_CONDUCT.md
+└── LICENSE
 ```
 
 ## Quick Start
@@ -75,9 +77,9 @@ After deployment, SSH into an instance and verify the mount:
 
 ```bash
 df -h /mnt/s3files
-echo "Hello from EC2" > /mnt/s3files/test.txt
+echo "Hello from EC2" | sudo tee /mnt/s3files/test.txt
 
-# Verify sync to S3 (allow up to 5 minutes)
+# Verify sync to S3 (exported ~60 s after the last write)
 aws s3 ls s3://my-app-data-dev/test.txt
 ```
 
@@ -128,12 +130,12 @@ module "s3_files" {
 | `compute_security_group_ids` | SG IDs of compute resources | `list(string)` | — | yes |
 | `kms_key_arn` | KMS key ARN (null = SSE-S3) | `string` | `null` | no |
 | `prefix` | S3 prefix to scope file system access | `string` | `null` | no |
-| `enable_sync_to_s3` | Enable file system → S3 sync | `bool` | `true` | no |
-| `enable_sync_from_s3` | Enable S3 → file system sync | `bool` | `true` | no |
+| `import_trigger` | `ON_DIRECTORY_FIRST_ACCESS` or `ON_FILE_ACCESS` | `string` | `ON_DIRECTORY_FIRST_ACCESS` | no |
+| `import_size_threshold` | Import file data below this size (bytes) | `number` | `131072` | no |
+| `expiration_days` | Days without a read before data expires from the file system | `number` | `30` | no |
+| `accept_bucket_warning` | Acknowledge the large-bucket (~12M objects) warning | `bool` | `false` | no |
 | `access_points` | Map of access point configurations | `map(object)` | `{}` | no |
 | `allowed_principal_arns` | IAM principals for file system policy | `list(string)` | `[]` | no |
-| `vpc_arn` | VPC ARN (for Lambda ENI constraint) | `string` | `null` | no |
-| `private_subnet_arns` | Subnet ARNs (for Lambda ENI constraint) | `list(string)` | `[]` | no |
 | `tags` | Additional tags for all resources | `map(string)` | `{}` | no |
 
 ## Outputs
@@ -157,10 +159,10 @@ module "s3_files" {
 This module implements the following security controls:
 
 - **Encryption at rest** — SSE-S3 (default) or customer-managed KMS with automatic key rotation
-- **Encryption in transit** — File system policy denies insecure transport; ECS uses transit encryption
+- **Encryption in transit** — Always TLS (mount helper and ECS); file system policy also denies insecure transport
 - **Network isolation** — Mount targets in private subnets only; security groups reference by ID
 - **Least-privilege IAM** — Separate policies per compute type scoped to specific file system ARN
-- **KMS key policy** — Grants S3 Files service principal via `kms:ViaService` condition
+- **KMS** — `kms_key_arn` encrypts the file system layer; the default key policy is sufficient. Bucket objects use the bucket's own encryption setting
 
 ## Environment Differences
 
@@ -190,6 +192,10 @@ Destroying the file system does **not** delete S3 objects. Your data remains in 
 - [Terraform AWS provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
 - [AWS KMS best practices](https://docs.aws.amazon.com/prescriptive-guidance/latest/aws-kms-best-practices/introduction.html)
 
+## Security
+
+See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more information.
+
 ## License
 
-This sample code is made available under the MIT-0 license. See the LICENSE file.
+This library is licensed under the MIT-0 License. See the [LICENSE](LICENSE) file.

@@ -44,7 +44,8 @@ resource "aws_kms_alias" "s3files" {
   target_key_id = aws_kms_key.s3files.key_id
 }
 
-# KMS key policy granting S3 Files service principal access
+# KMS key policy: default account-root statement is sufficient for S3 Files
+# (verified 2026-09-29 — no service-principal statement needed)
 resource "aws_kms_key_policy" "s3files" {
   key_id = aws_kms_key.s3files.id
   policy = jsonencode({
@@ -58,24 +59,6 @@ resource "aws_kms_key_policy" "s3files" {
         }
         Action   = "kms:*"
         Resource = "*"
-      },
-      {
-        Sid    = "AllowS3FilesService"
-        Effect = "Allow"
-        Principal = {
-          Service = "s3files.amazonaws.com"
-        }
-        Action = [
-          "kms:Decrypt",
-          "kms:GenerateDataKey",
-          "kms:DescribeKey",
-        ]
-        Resource = "*"
-        Condition = {
-          StringEquals = {
-            "kms:ViaService" = "s3files.${var.aws_region}.amazonaws.com"
-          }
-        }
       }
     ]
   })
@@ -173,14 +156,8 @@ module "s3_files" {
   # Production uses customer-managed KMS key
   kms_key_arn = aws_kms_key.s3files.arn
 
-  enable_sync_to_s3   = true
-  enable_sync_from_s3 = true
-
   allowed_principal_arns = var.allowed_principal_arns
 
-  # Required for Lambda IAM policy condition constraints
-  vpc_arn             = "arn:aws:ec2:${var.aws_region}:${data.aws_caller_identity.current.account_id}:vpc/${var.vpc_id}"
-  private_subnet_arns = [for s in var.private_subnet_ids : "arn:aws:ec2:${var.aws_region}:${data.aws_caller_identity.current.account_id}:subnet/${s}"]
 
   access_points = {
     app = {
@@ -210,9 +187,9 @@ module "s3_files" {
   }
 
   tags = {
-    CostCenter  = "platform"
-    Compliance  = "required"
-    DataClass   = "confidential"
+    CostCenter = "platform"
+    Compliance = "required"
+    DataClass  = "confidential"
   }
 }
 

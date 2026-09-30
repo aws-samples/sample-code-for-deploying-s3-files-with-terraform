@@ -28,10 +28,10 @@ resource "aws_ecs_task_definition" "app" {
     name = "s3files-data"
 
     s3files_volume_configuration {
-      file_system_arn       = module.s3_files.file_system_arn
-      root_directory        = "/"
+      file_system_arn         = module.s3_files.file_system_arn
+      root_directory          = "/"
       transit_encryption_port = 2999
-      access_point_arn      = module.s3_files.access_point_arns["app"]
+      access_point_arn        = module.s3_files.access_point_arns["app"]
     }
   }
 

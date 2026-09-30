@@ -9,7 +9,8 @@
 #   - Access point ARN required (not file system ARN directly)
 #   - Local mount path must start with /mnt/
 #   - Function needs s3files:ClientMount and s3files:ClientWrite permissions
-#   - For direct S3 reads on large files (>=1 MiB), also add s3:GetObject
+#   - Direct S3 read permissions are included in the module's Lambda policy
+#   - AWSLambdaVPCAccessExecutionRole is required for VPC-attached functions
 #   - Recommend 512 MB+ memory for optimal throughput on large files
 #   - VPC-attached Lambda has longer cold starts (1-5s); use provisioned concurrency
 #
@@ -79,24 +80,4 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
 resource "aws_iam_role_policy_attachment" "lambda_vpc" {
   role       = aws_iam_role.lambda_s3files.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
-}
-
-# Optional: For direct S3 reads on large files (>=1 MiB), add s3:GetObject
-# Replace the bucket ARN below with your actual bucket ARN
-resource "aws_iam_role_policy" "lambda_s3_direct_read" {
-  name = "s3-direct-read"
-  role = aws_iam_role.lambda_s3files.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Sid    = "DirectS3Read"
-      Effect = "Allow"
-      Action = [
-        "s3:GetObject",
-        "s3:GetObjectVersion",
-      ]
-      Resource = "${var.bucket_arn}/*"
-    }]
-  })
 }

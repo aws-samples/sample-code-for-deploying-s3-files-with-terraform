@@ -34,7 +34,7 @@ resource "aws_s3files_file_system" "this" {
 
   kms_key_id            = var.kms_key_arn
   prefix                = var.prefix
-  accept_bucket_warning = true
+  accept_bucket_warning = var.accept_bucket_warning
 
   tags = merge(local.common_tags, {
     Name = "${local.name_prefix}-${replace(var.bucket_arn, "/.*::/", "")}"
@@ -72,7 +72,7 @@ resource "aws_vpc_security_group_ingress_rule" "nfs_from_compute" {
   tags = local.common_tags
 }
 
-resource "aws_vpc_security_group_egress_rule" "deny_all" {
+resource "aws_vpc_security_group_egress_rule" "vpc_only" {
   security_group_id = aws_security_group.file_system.id
   ip_protocol       = "-1"
   cidr_ipv4         = data.aws_vpc.this.cidr_block
@@ -154,16 +154,19 @@ resource "aws_s3files_file_system_policy" "this" {
 # Synchronization Configuration
 # ------------------------------------------------------------------------------
 
-# Note: aws_s3files_synchronization_configuration resource schema
-# does not support sync_to_s3/sync_from_s3 nested blocks.
-# Synchronization is configured via the synchronization_configuration
-# block inside aws_s3files_file_system, or via the API directly.
-# Removing this resource until the exact Terraform schema is confirmed.
-#
-# resource "aws_s3files_synchronization_configuration" "this" {
-#   file_system_id = aws_s3files_file_system.this.id
-#   # Schema TBD — check provider docs when available
-# }
+resource "aws_s3files_synchronization_configuration" "this" {
+  file_system_id = aws_s3files_file_system.this.id
+
+  import_data_rule {
+    prefix         = ""
+    trigger        = var.import_trigger
+    size_less_than = var.import_size_threshold
+  }
+
+  expiration_data_rule {
+    days_after_last_access = var.expiration_days
+  }
+}
 
 # ------------------------------------------------------------------------------
 # Access Points (optional, for scoped access)
@@ -181,6 +184,15 @@ resource "aws_s3files_access_point" "this" {
 
   root_directory {
     path = each.value.path
+
+    dynamic "creation_permissions" {
+      for_each = each.value.root_directory_creation_info != null ? [each.value.root_directory_creation_info] : []
+      content {
+        owner_uid   = creation_permissions.value.owner_uid
+        owner_gid   = creation_permissions.value.owner_gid
+        permissions = creation_permissions.value.permissions
+      }
+    }
   }
 
   tags = merge(local.common_tags, {

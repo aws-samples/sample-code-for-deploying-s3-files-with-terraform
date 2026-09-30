@@ -44,23 +44,43 @@ variable "kms_key_arn" {
   default     = null
 }
 
-variable "enable_sync_to_s3" {
-  description = "Enable automatic synchronization from file system to S3"
-  type        = bool
-  default     = true
+variable "import_trigger" {
+  description = "When S3 Files imports file data: ON_DIRECTORY_FIRST_ACCESS or ON_FILE_ACCESS"
+  type        = string
+  default     = "ON_DIRECTORY_FIRST_ACCESS"
+  validation {
+    condition     = contains(["ON_DIRECTORY_FIRST_ACCESS", "ON_FILE_ACCESS"], var.import_trigger)
+    error_message = "import_trigger must be ON_DIRECTORY_FIRST_ACCESS or ON_FILE_ACCESS."
+  }
 }
 
-variable "enable_sync_from_s3" {
-  description = "Enable automatic synchronization from S3 to file system"
+variable "import_size_threshold" {
+  description = "Import data only for files smaller than this many bytes (metadata is always imported). Default 128 KiB."
+  type        = number
+  default     = 131072
+}
+
+variable "expiration_days" {
+  description = "Days without a read before file data is expired from the file system (1-365). Data remains in S3."
+  type        = number
+  default     = 30
+  validation {
+    condition     = var.expiration_days >= 1 && var.expiration_days <= 365
+    error_message = "expiration_days must be between 1 and 365."
+  }
+}
+
+variable "accept_bucket_warning" {
+  description = "Acknowledge the warning S3 Files raises for buckets/prefixes with a very large number of objects (~12M)."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "access_points" {
   description = "Map of access points to create for scoped access"
   type = map(object({
-    path        = string
-    posix_user  = optional(object({
+    path = string
+    posix_user = optional(object({
       uid = number
       gid = number
     }))
@@ -83,16 +103,4 @@ variable "tags" {
   description = "Additional tags to apply to all resources"
   type        = map(string)
   default     = {}
-}
-
-variable "vpc_arn" {
-  description = "ARN of the VPC (used to constrain Lambda ENI creation to a specific VPC)"
-  type        = string
-  default     = null
-}
-
-variable "private_subnet_arns" {
-  description = "ARNs of the private subnets (used to constrain Lambda ENI creation)"
-  type        = list(string)
-  default     = []
 }

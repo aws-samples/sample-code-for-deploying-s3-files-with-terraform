@@ -91,6 +91,10 @@ resource "aws_iam_role" "s3files_service" {
       Effect    = "Allow"
       Principal = { Service = "elasticfilesystem.amazonaws.com" }
       Action    = "sts:AssumeRole"
+      Condition = {
+        StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.current.account_id }
+        ArnLike      = { "aws:SourceArn" = "arn:aws:s3files:${var.aws_region}:${data.aws_caller_identity.current.account_id}:file-system/*" }
+      }
     }]
   })
 }
@@ -113,7 +117,7 @@ resource "aws_iam_role_policy" "s3files_s3_access" {
         Effect = "Allow"
         Action = [
           "s3:AbortMultipartUpload",
-          "s3:DeleteObject",
+          "s3:DeleteObject*",
           "s3:GetObject*",
           "s3:List*",
           "s3:PutObject*"
@@ -143,11 +147,19 @@ resource "aws_iam_role_policy" "s3files_eventbridge" {
           "events:RemoveTargets"
         ]
         Resource = ["arn:aws:events:${var.aws_region}:${data.aws_caller_identity.current.account_id}:rule/DO-NOT-DELETE-S3-Files*"]
+        Condition = {
+          StringEquals = { "events:ManagedBy" = "elasticfilesystem.amazonaws.com" }
+        }
       },
       {
-        Sid      = "EventBridgeList"
-        Effect   = "Allow"
-        Action   = ["events:ListRules"]
+        Sid    = "EventBridgeRead"
+        Effect = "Allow"
+        Action = [
+          "events:DescribeRule",
+          "events:ListRuleNamesByTarget",
+          "events:ListRules",
+          "events:ListTargetsByRule"
+        ]
         Resource = ["arn:aws:events:${var.aws_region}:${data.aws_caller_identity.current.account_id}:rule/*"]
       }
     ]
@@ -184,7 +196,11 @@ resource "aws_vpc_security_group_egress_rule" "compute_to_fs" {
 module "s3_files" {
   source = "../../modules/s3-files"
 
-  depends_on = [aws_s3_bucket_versioning.test]
+  depends_on = [
+    aws_s3_bucket_versioning.test,
+    aws_iam_role_policy.s3files_s3_access,
+    aws_iam_role_policy.s3files_eventbridge,
+  ]
 
   environment = "dev"
   bucket_arn  = aws_s3_bucket.test.arn
@@ -194,9 +210,6 @@ module "s3_files" {
 
   compute_security_group_ids = [aws_security_group.compute.id]
 
-  # Required for Lambda IAM policy condition constraints
-  vpc_arn             = aws_vpc.this.arn
-  private_subnet_arns = aws_subnet.private[*].arn
 
   # Dev uses SSE-S3 (no KMS key)
   kms_key_arn = null
@@ -208,7 +221,11 @@ module "s3_files" {
         uid = 1000
         gid = 1000
       }
-      root_directory_creation_info = null
+      root_directory_creation_info = {
+        owner_uid   = 1000
+        owner_gid   = 1000
+        permissions = "755"
+      }
     }
   }
 

@@ -2,126 +2,86 @@
 # CloudWatch Alarms for S3 Files
 # ------------------------------------------------------------------------------
 #
-# S3 Files client metrics are emitted by amazon-efs-utils to the
-# "efs-utils/S3Files" namespace. These are client-side connectivity
-# health checks (0 = unhealthy, 1 = healthy).
+# The S3 Files client (amazon-efs-utils) publishes connectivity metrics to the
+# "efs-utils/S3Files" namespace, one series per client:
 #
-# Metrics:
-#   - NFSConnectionAccessible: Can the client reach the mount target via NFS?
-#   - S3BucketAccessible: Does the client have permissions to read the linked bucket?
-#   - S3BucketReachable: Is the linked bucket and prefix reachable from the client?
+#   - S3BucketAccessible: Does the client have permission to read the linked bucket?
+#   - S3BucketReachable:  Is the linked bucket and prefix reachable from the client?
 #
-# Note: These metrics require amazon-efs-utils to be installed on compute
-# instances. They are emitted per-client, not per-file-system.
+# Dimensions are Bucket + InstanceId (not FileSystemId), so each alarm uses a
+# CloudWatch Metrics Insights query that takes the minimum across all clients of
+# this bucket. Values are 1 = healthy, 0 = unhealthy. No clients mounted means
+# no data, which is treated as not breaching.
+#
+# NFSConnectionAccessible is documented, but efs-proxy only publishes it when
+# read bypass is enabled (verified against amazon-efs-utils source and a live
+# test on 2026-09-29), so this module does not alarm on it.
 # ------------------------------------------------------------------------------
 
-resource "aws_cloudwatch_metric_alarm" "nfs_connection" {
-  alarm_name          = "${local.name_prefix}-nfs-unreachable"
-  alarm_description   = "S3 Files NFS mount target is not accessible from client"
-  comparison_operator = "LessThanThreshold"
-  evaluation_periods  = 3
-  metric_name         = "NFSConnectionAccessible"
-  namespace           = "efs-utils/S3Files"
-  period              = 300
-  statistic           = "Minimum"
-  threshold           = 1
-  treat_missing_data  = "breaching"
+locals {
+  bucket_name = replace(var.bucket_arn, "arn:aws:s3:::", "")
 
-  dimensions = {
-    FileSystemId = aws_s3files_file_system.this.id
+  client_metrics = {
+    s3_bucket_accessible = {
+      metric      = "S3BucketAccessible"
+      alarm       = "s3-permissions"
+      description = "An S3 Files client lacks permission to read the linked S3 bucket"
+    }
+    s3_bucket_reachable = {
+      metric      = "S3BucketReachable"
+      alarm       = "s3-unreachable"
+      description = "The linked S3 bucket or prefix is not reachable from an S3 Files client"
+    }
   }
-
-  tags = local.common_tags
 }
 
-resource "aws_cloudwatch_metric_alarm" "s3_bucket_accessible" {
-  alarm_name          = "${local.name_prefix}-s3-permissions"
-  alarm_description   = "S3 Files client lacks permissions to read the linked S3 bucket"
+resource "aws_cloudwatch_metric_alarm" "client" {
+  for_each = local.client_metrics
+
+  alarm_name          = "${local.name_prefix}-${each.value.alarm}"
+  alarm_description   = each.value.description
   comparison_operator = "LessThanThreshold"
   evaluation_periods  = 2
-  metric_name         = "S3BucketAccessible"
-  namespace           = "efs-utils/S3Files"
-  period              = 300
-  statistic           = "Minimum"
   threshold           = 1
   treat_missing_data  = "notBreaching"
 
-  dimensions = {
-    FileSystemId = aws_s3files_file_system.this.id
-  }
-
-  tags = local.common_tags
-}
-
-resource "aws_cloudwatch_metric_alarm" "s3_bucket_reachable" {
-  alarm_name          = "${local.name_prefix}-s3-unreachable"
-  alarm_description   = "S3 Files linked bucket or prefix is not reachable from client"
-  comparison_operator = "LessThanThreshold"
-  evaluation_periods  = 2
-  metric_name         = "S3BucketReachable"
-  namespace           = "efs-utils/S3Files"
-  period              = 300
-  statistic           = "Minimum"
-  threshold           = 1
-  treat_missing_data  = "notBreaching"
-
-  dimensions = {
-    FileSystemId = aws_s3files_file_system.this.id
+  metric_query {
+    id          = "q1"
+    return_data = true
+    period      = 300
+    expression  = "SELECT MIN(${each.value.metric}) FROM SCHEMA(\"efs-utils/S3Files\", Bucket, InstanceId) WHERE Bucket = '${local.bucket_name}'"
   }
 
   tags = local.common_tags
 }
 
 # ------------------------------------------------------------------------------
-# CloudWatch Dashboard
+# CloudWatch Dashboard — one line per client for each metric
 # ------------------------------------------------------------------------------
 
 resource "aws_cloudwatch_dashboard" "s3files" {
   dashboard_name = "${local.name_prefix}-dashboard"
   dashboard_body = jsonencode({
     widgets = [
-      {
+      for i, m in values(local.client_metrics) : {
         type   = "metric"
-        x      = 0
+        x      = i * 12
         y      = 0
-        width  = 8
+        width  = 12
         height = 6
         properties = {
-          title   = "NFS Connection Health"
-          metrics = [["efs-utils/S3Files", "NFSConnectionAccessible", "FileSystemId", aws_s3files_file_system.this.id]]
-          period  = 300
-          region  = data.aws_region.current.region
-          yAxis   = { left = { min = 0, max = 1 } }
+          title  = "${m.metric} (per client)"
+          region = data.aws_region.current.region
+          period = 300
+          stat   = "Minimum"
+          yAxis  = { left = { min = 0, max = 1 } }
+          metrics = [[{
+            expression = "SELECT MIN(${m.metric}) FROM SCHEMA(\"efs-utils/S3Files\", Bucket, InstanceId) WHERE Bucket = '${local.bucket_name}' GROUP BY InstanceId"
+            id         = "q${i}"
+            label      = m.metric
+          }]]
         }
-      },
-      {
-        type   = "metric"
-        x      = 8
-        y      = 0
-        width  = 8
-        height = 6
-        properties = {
-          title   = "S3 Bucket Permissions"
-          metrics = [["efs-utils/S3Files", "S3BucketAccessible", "FileSystemId", aws_s3files_file_system.this.id]]
-          period  = 300
-          region  = data.aws_region.current.region
-          yAxis   = { left = { min = 0, max = 1 } }
-        }
-      },
-      {
-        type   = "metric"
-        x      = 16
-        y      = 0
-        width  = 8
-        height = 6
-        properties = {
-          title   = "S3 Bucket Reachability"
-          metrics = [["efs-utils/S3Files", "S3BucketReachable", "FileSystemId", aws_s3files_file_system.this.id]]
-          period  = 300
-          region  = data.aws_region.current.region
-          yAxis   = { left = { min = 0, max = 1 } }
-        }
-      },
+      }
     ]
   })
 }

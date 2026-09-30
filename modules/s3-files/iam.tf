@@ -8,23 +8,28 @@ data "aws_iam_policy_document" "ec2_s3files" {
     actions = [
       "s3files:ClientMount",
       "s3files:ClientWrite",
-      "s3files:DescribeFileSystems",
-      "s3files:DescribeMountTargets",
+      # EC2 mounts the file system root; without this, root is squashed and
+      # writes to "/" fail with Permission denied (verified 2026-09-29)
+      "s3files:ClientRootAccess",
+      "s3files:GetFileSystem",
+      "s3files:GetMountTarget",
     ]
     resources = [aws_s3files_file_system.this.arn]
   }
 
-  dynamic "statement" {
-    for_each = var.kms_key_arn != null ? [1] : []
-    content {
-      sid = "KMSDecrypt"
-      actions = [
-        "kms:Decrypt",
-        "kms:GenerateDataKey",
-      ]
-      resources = [var.kms_key_arn]
-    }
+  # Direct reads from the linked bucket (large-file read performance)
+  statement {
+    sid       = "S3ObjectReadAccess"
+    actions   = ["s3:GetObject", "s3:GetObjectVersion"]
+    resources = ["${var.bucket_arn}/*"]
   }
+
+  statement {
+    sid       = "S3BucketListAccess"
+    actions   = ["s3:ListBucket"]
+    resources = [var.bucket_arn]
+  }
+
 }
 
 resource "aws_iam_policy" "ec2_s3files" {
@@ -41,10 +46,23 @@ data "aws_iam_policy_document" "ecs_s3files" {
     actions = [
       "s3files:ClientMount",
       "s3files:ClientWrite",
-      "s3files:DescribeFileSystems",
-      "s3files:DescribeMountTargets",
+      "s3files:GetFileSystem",
+      "s3files:GetMountTarget",
     ]
     resources = [aws_s3files_file_system.this.arn]
+  }
+
+  # Direct reads from the linked bucket (large-file read performance)
+  statement {
+    sid       = "S3ObjectReadAccess"
+    actions   = ["s3:GetObject", "s3:GetObjectVersion"]
+    resources = ["${var.bucket_arn}/*"]
+  }
+
+  statement {
+    sid       = "S3BucketListAccess"
+    actions   = ["s3:ListBucket"]
+    resources = [var.bucket_arn]
   }
 
   statement {
@@ -56,17 +74,6 @@ data "aws_iam_policy_document" "ecs_s3files" {
     resources = [for ap in aws_s3files_access_point.this : ap.arn]
   }
 
-  dynamic "statement" {
-    for_each = var.kms_key_arn != null ? [1] : []
-    content {
-      sid = "KMSDecrypt"
-      actions = [
-        "kms:Decrypt",
-        "kms:GenerateDataKey",
-      ]
-      resources = [var.kms_key_arn]
-    }
-  }
 }
 
 resource "aws_iam_policy" "ecs_s3files" {
@@ -83,10 +90,23 @@ data "aws_iam_policy_document" "lambda_s3files" {
     actions = [
       "s3files:ClientMount",
       "s3files:ClientWrite",
-      "s3files:DescribeFileSystems",
-      "s3files:DescribeMountTargets",
+      "s3files:GetFileSystem",
+      "s3files:GetMountTarget",
     ]
     resources = [aws_s3files_file_system.this.arn]
+  }
+
+  # Direct reads from the linked bucket (large-file read performance)
+  statement {
+    sid       = "S3ObjectReadAccess"
+    actions   = ["s3:GetObject", "s3:GetObjectVersion"]
+    resources = ["${var.bucket_arn}/*"]
+  }
+
+  statement {
+    sid       = "S3BucketListAccess"
+    actions   = ["s3:ListBucket"]
+    resources = [var.bucket_arn]
   }
 
   statement {
@@ -98,44 +118,6 @@ data "aws_iam_policy_document" "lambda_s3files" {
     resources = [for ap in aws_s3files_access_point.this : ap.arn]
   }
 
-  statement {
-    sid = "VPCNetworkInterfacesDescribe"
-    actions = [
-      "ec2:DescribeNetworkInterfaces",
-    ]
-    resources = ["*"]
-  }
-
-  statement {
-    sid = "VPCNetworkInterfacesMutate"
-    actions = [
-      "ec2:CreateNetworkInterface",
-      "ec2:DeleteNetworkInterface",
-    ]
-    resources = ["*"]
-    condition {
-      test     = "StringEquals"
-      variable = "ec2:Vpc"
-      values   = [var.vpc_arn]
-    }
-    condition {
-      test     = "StringEquals"
-      variable = "ec2:Subnet"
-      values   = var.private_subnet_arns
-    }
-  }
-
-  dynamic "statement" {
-    for_each = var.kms_key_arn != null ? [1] : []
-    content {
-      sid = "KMSDecrypt"
-      actions = [
-        "kms:Decrypt",
-        "kms:GenerateDataKey",
-      ]
-      resources = [var.kms_key_arn]
-    }
-  }
 }
 
 resource "aws_iam_policy" "lambda_s3files" {

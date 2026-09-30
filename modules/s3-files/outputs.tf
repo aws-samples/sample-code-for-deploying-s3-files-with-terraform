@@ -1,5 +1,5 @@
 output "file_system_id" {
-  description = "ID of the S3 file system (used with mount helper: mount -t efs -o tls,iam fs-xxx:/ /mnt/s3files)"
+  description = "ID of the S3 file system (used with mount helper: mount -t s3files fs-xxx:/ /mnt/s3files)"
   value       = aws_s3files_file_system.this.id
 }
 
@@ -50,5 +50,5 @@ output "lambda_iam_policy_arn" {
 
 output "mount_helper_command" {
   description = "Mount command using amazon-efs-utils mount helper (recommended for EC2)"
-  value       = "sudo mount -t efs -o tls,iam ${aws_s3files_file_system.this.id}:/ /mnt/s3files"
+  value       = "sudo mount -t s3files ${aws_s3files_file_system.this.id}:/ /mnt/s3files"
 }

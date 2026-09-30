@@ -3,13 +3,13 @@
 # ------------------------------------------------------------------------------
 #
 # EC2 instances access S3 Files through the mount helper (amazon-efs-utils).
-# The mount helper handles TLS, IAM authentication, and NFS v4.2 automatically.
+# The mount helper always applies TLS and IAM authentication and uses NFS v4.2.
 # It also emits CloudWatch connectivity metrics to the efs-utils/S3Files namespace.
 #
 # Key points:
 #   - Install amazon-efs-utils (provides the mount helper)
-#   - Use file_system_id with mount helper (not DNS name)
-#   - Instance needs s3files:ClientMount and s3files:ClientWrite permissions
+#   - Mount type is s3files: mount -t s3files <file-system-id>:/ <path>
+#   - Instance needs s3files:ClientMount, ClientWrite, and ClientRootAccess (root mount)
 #   - Instance must be in same VPC as mount targets
 #   - Compute security group needs egress to mount target SG on port 2049
 #
@@ -49,6 +49,12 @@ resource "aws_iam_role_policy_attachment" "ec2_s3files" {
   policy_arn = module.s3_files.ec2_iam_policy_arn
 }
 
+# Lets the S3 Files client publish CloudWatch connectivity metrics (required for Step 9 alarms)
+resource "aws_iam_role_policy_attachment" "ec2_cloudwatch" {
+  role       = aws_iam_role.ec2_s3files.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonElasticFileSystemsUtils"
+}
+
 resource "aws_iam_instance_profile" "ec2_s3files" {
   name_prefix = "s3files-ec2-"
   role        = aws_iam_role.ec2_s3files.name
@@ -61,7 +67,7 @@ resource "aws_instance" "app" {
   subnet_id              = var.private_subnet_ids[0]
   vpc_security_group_ids = [aws_security_group.compute.id]
 
-  user_data = base64encode(templatefile("${path.module}/templates/user-data.sh.tftpl", {
+  user_data_base64 = base64encode(templatefile("${path.module}/templates/user-data.sh.tftpl", {
     file_system_id = module.s3_files.file_system_id
     mount_point    = "/mnt/s3files"
   }))
