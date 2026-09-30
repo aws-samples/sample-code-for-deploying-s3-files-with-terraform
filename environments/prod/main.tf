@@ -158,7 +158,6 @@ module "s3_files" {
 
   allowed_principal_arns = var.allowed_principal_arns
 
-
   access_points = {
     app = {
       path = "/app-data"

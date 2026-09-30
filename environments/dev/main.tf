@@ -210,7 +210,6 @@ module "s3_files" {
 
   compute_security_group_ids = [aws_security_group.compute.id]
 
-
   # Dev uses SSE-S3 (no KMS key)
   kms_key_arn = null
 

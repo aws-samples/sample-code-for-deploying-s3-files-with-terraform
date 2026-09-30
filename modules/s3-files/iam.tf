@@ -29,7 +29,6 @@ data "aws_iam_policy_document" "ec2_s3files" {
     actions   = ["s3:ListBucket"]
     resources = [var.bucket_arn]
   }
-
 }
 
 resource "aws_iam_policy" "ec2_s3files" {
@@ -73,7 +72,6 @@ data "aws_iam_policy_document" "ecs_s3files" {
     ]
     resources = [for ap in aws_s3files_access_point.this : ap.arn]
   }
-
 }
 
 resource "aws_iam_policy" "ecs_s3files" {
@@ -117,7 +115,6 @@ data "aws_iam_policy_document" "lambda_s3files" {
     ]
     resources = [for ap in aws_s3files_access_point.this : ap.arn]
   }
-
 }
 
 resource "aws_iam_policy" "lambda_s3files" {
