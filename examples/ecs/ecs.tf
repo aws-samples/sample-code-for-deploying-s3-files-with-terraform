@@ -15,6 +15,15 @@
 # Reference: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/s3files-volumes.html
 # ------------------------------------------------------------------------------
 
+resource "aws_ecs_cluster" "main" {
+  name = "s3files-ecs-${var.environment}"
+}
+
+resource "aws_cloudwatch_log_group" "app" {
+  name              = "/ecs/s3files-ecs-${var.environment}"
+  retention_in_days = 7
+}
+
 resource "aws_ecs_task_definition" "app" {
   family                   = "s3files-app-${var.environment}"
   requires_compatibilities = ["FARGATE"]
@@ -37,9 +46,19 @@ resource "aws_ecs_task_definition" "app" {
 
   container_definitions = jsonencode([{
     name                   = "app"
-    image                  = "my-app:latest"
+    image                  = "public.ecr.aws/amazonlinux/amazonlinux:2023"
     essential              = true
     readonlyRootFilesystem = true
+    # Writes a file through the access point, lists the mount, then stays running
+    command = ["sh", "-c", "date > /data/ecs-test.txt && ls -l /data && sleep 3600"]
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        awslogs-group         = aws_cloudwatch_log_group.app.name
+        awslogs-region        = var.aws_region
+        awslogs-stream-prefix = "app"
+      }
+    }
     mountPoints = [{
       sourceVolume  = "s3files-data"
       containerPath = "/data"
@@ -53,7 +72,7 @@ resource "aws_ecs_service" "app" {
   name             = "s3files-app-${var.environment}"
   cluster          = aws_ecs_cluster.main.id
   task_definition  = aws_ecs_task_definition.app.arn
-  desired_count    = 2
+  desired_count    = 1
   launch_type      = "FARGATE"
   platform_version = "1.4.0"
 
@@ -61,6 +80,9 @@ resource "aws_ecs_service" "app" {
     subnets         = var.private_subnet_ids
     security_groups = [aws_security_group.compute.id]
   }
+
+  # Tasks fail to start until the mount targets are available
+  depends_on = [module.s3_files]
 }
 
 # IAM role for ECS task — needs s3files:ClientMount and s3files:ClientWrite

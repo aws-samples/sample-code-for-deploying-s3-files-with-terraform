@@ -1,0 +1,6 @@
+# Copy this file to terraform.auto.tfvars and replace the placeholder values.
+aws_region         = "us-east-1"
+environment        = "dev"
+vpc_id             = "vpc-0123456789abcdef0"
+private_subnet_ids = ["subnet-0123456789abcdef0", "subnet-0fedcba9876543210"]
+bucket_arn         = "arn:aws:s3:::amzn-s3-demo-bucket"

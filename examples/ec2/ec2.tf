@@ -11,7 +11,7 @@
 #   - Mount type is s3files: mount -t s3files <file-system-id>:/ <path>
 #   - Instance needs s3files:ClientMount, ClientWrite, and ClientRootAccess (root mount)
 #   - Instance must be in same VPC as mount targets
-#   - Compute security group needs egress to mount target SG on port 2049
+#   - Compute security group needs egress to mount target SG on port 2049 (main.tf)
 #
 # Reference: https://docs.aws.amazon.com/AmazonS3/latest/userguide/s3-files-mounting.html
 # ------------------------------------------------------------------------------
@@ -49,10 +49,16 @@ resource "aws_iam_role_policy_attachment" "ec2_s3files" {
   policy_arn = module.s3_files.ec2_iam_policy_arn
 }
 
-# Lets the S3 Files client publish CloudWatch connectivity metrics (required for Step 9 alarms)
+# Lets the S3 Files client publish CloudWatch connectivity metrics (used by the module's alarms)
 resource "aws_iam_role_policy_attachment" "ec2_cloudwatch" {
   role       = aws_iam_role.ec2_s3files.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonElasticFileSystemsUtils"
+}
+
+# Lets you connect to the private instance with Session Manager (no SSH or bastion)
+resource "aws_iam_role_policy_attachment" "ec2_ssm" {
+  role       = aws_iam_role.ec2_s3files.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
 resource "aws_iam_instance_profile" "ec2_s3files" {
@@ -66,6 +72,9 @@ resource "aws_instance" "app" {
   iam_instance_profile   = aws_iam_instance_profile.ec2_s3files.name
   subnet_id              = var.private_subnet_ids[0]
   vpc_security_group_ids = [aws_security_group.compute.id]
+
+  # The boot-time mount needs the mount targets, which take several minutes to become available
+  depends_on = [module.s3_files]
 
   user_data_base64 = base64encode(templatefile("${path.module}/templates/user-data.sh.tftpl", {
     file_system_id = module.s3_files.file_system_id

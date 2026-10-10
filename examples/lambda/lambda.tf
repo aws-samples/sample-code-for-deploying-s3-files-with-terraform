@@ -33,6 +33,10 @@ resource "aws_lambda_function" "processor" {
     security_group_ids = [aws_security_group.compute.id]
   }
 
+  # On destroy, move Lambda's network interfaces to the VPC default security group so the
+  # compute security group can be deleted right away (otherwise destroy waits 20+ minutes)
+  replace_security_groups_on_destroy = true
+
   # S3 Files uses the same file_system_config block as EFS in Terraform.
   # The access_point_arn distinguishes S3 Files from EFS at the service level.
   file_system_config {
@@ -45,6 +49,9 @@ resource "aws_lambda_function" "processor" {
       MOUNT_PATH = "/mnt/s3data"
     }
   }
+
+  # Lambda needs an available mount target in the function's subnets
+  depends_on = [module.s3_files]
 }
 
 data "archive_file" "lambda_src" {

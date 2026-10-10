@@ -64,13 +64,17 @@ data "aws_iam_policy_document" "ecs_s3files" {
     resources = [var.bucket_arn]
   }
 
-  statement {
-    sid = "S3FilesAccessPoint"
-    actions = [
-      "s3files:ClientMount",
-      "s3files:ClientWrite",
-    ]
-    resources = [for ap in aws_s3files_access_point.this : ap.arn]
+  # Only when access points exist: IAM rejects a statement with an empty resource list
+  dynamic "statement" {
+    for_each = length(aws_s3files_access_point.this) > 0 ? [1] : []
+    content {
+      sid = "S3FilesAccessPoint"
+      actions = [
+        "s3files:ClientMount",
+        "s3files:ClientWrite",
+      ]
+      resources = [for ap in aws_s3files_access_point.this : ap.arn]
+    }
   }
 }
 
@@ -107,13 +111,17 @@ data "aws_iam_policy_document" "lambda_s3files" {
     resources = [var.bucket_arn]
   }
 
-  statement {
-    sid = "S3FilesAccessPoint"
-    actions = [
-      "s3files:ClientMount",
-      "s3files:ClientWrite",
-    ]
-    resources = [for ap in aws_s3files_access_point.this : ap.arn]
+  # Only when access points exist: IAM rejects a statement with an empty resource list
+  dynamic "statement" {
+    for_each = length(aws_s3files_access_point.this) > 0 ? [1] : []
+    content {
+      sid = "S3FilesAccessPoint"
+      actions = [
+        "s3files:ClientMount",
+        "s3files:ClientWrite",
+      ]
+      resources = [for ap in aws_s3files_access_point.this : ap.arn]
+    }
   }
 }
 

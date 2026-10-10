@@ -1,89 +1,15 @@
-terraform {
-  required_version = ">= 1.5"
-
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = ">= 6.58.0"
-    }
-    random = {
-      source  = "hashicorp/random"
-      version = ">= 3.0"
-    }
-  }
-}
-
-provider "aws" {
-  region = var.aws_region
-
-  default_tags {
-    tags = {
-      Project     = "s3-files-blog"
-      Environment = "dev"
-      ManagedBy   = "terraform"
-    }
-  }
-}
+# ------------------------------------------------------------------------------
+# S3 Files for Amazon ECS on AWS Fargate: service role, compute security group, and module
+# ------------------------------------------------------------------------------
 
 data "aws_caller_identity" "current" {}
-data "aws_availability_zones" "available" {
-  state = "available"
-}
 
 # ------------------------------------------------------------------------------
-# VPC (self-contained — no external dependencies)
-# ------------------------------------------------------------------------------
-
-resource "aws_vpc" "this" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_support   = true
-  enable_dns_hostnames = true
-
-  tags = {
-    Name = "s3files-dev-vpc"
-  }
-}
-
-resource "aws_subnet" "private" {
-  count = 2
-
-  vpc_id            = aws_vpc.this.id
-  cidr_block        = cidrsubnet(aws_vpc.this.cidr_block, 8, count.index)
-  availability_zone = data.aws_availability_zones.available.names[count.index]
-
-  map_public_ip_on_launch = false
-
-  tags = {
-    Name = "s3files-dev-private-${data.aws_availability_zones.available.names[count.index]}"
-  }
-}
-
-# ------------------------------------------------------------------------------
-# S3 Bucket (created for testing)
-# ------------------------------------------------------------------------------
-
-resource "random_id" "bucket" {
-  byte_length = 8
-}
-
-resource "aws_s3_bucket" "test" {
-  bucket        = "s3files-blog-dev-${random_id.bucket.hex}"
-  force_destroy = true
-}
-
-resource "aws_s3_bucket_versioning" "test" {
-  bucket = aws_s3_bucket.test.id
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-# ------------------------------------------------------------------------------
-# IAM Role for S3 Files Service (sync and change detection)
+# IAM role that S3 Files assumes to synchronize data with the bucket
 # ------------------------------------------------------------------------------
 
 resource "aws_iam_role" "s3files_service" {
-  name_prefix = "s3files-dev-service-"
+  name_prefix = "s3files-ecs-service-"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -110,7 +36,7 @@ resource "aws_iam_role_policy" "s3files_s3_access" {
         Sid      = "BucketAccess"
         Effect   = "Allow"
         Action   = ["s3:ListBucket*"]
-        Resource = [aws_s3_bucket.test.arn]
+        Resource = [var.bucket_arn]
       },
       {
         Sid    = "ObjectAccess"
@@ -122,7 +48,7 @@ resource "aws_iam_role_policy" "s3files_s3_access" {
           "s3:List*",
           "s3:PutObject*"
         ]
-        Resource = ["${aws_s3_bucket.test.arn}/*"]
+        Resource = ["${var.bucket_arn}/*"]
       }
     ]
   })
@@ -167,19 +93,16 @@ resource "aws_iam_role_policy" "s3files_eventbridge" {
 }
 
 # ------------------------------------------------------------------------------
-# Compute Security Group
+# Security group for the compute resource that mounts the file system
 # ------------------------------------------------------------------------------
 
 resource "aws_security_group" "compute" {
-  name_prefix = "s3files-dev-compute-"
-  description = "Security group for compute resources accessing S3 Files"
-  vpc_id      = aws_vpc.this.id
-
-  tags = {
-    Name = "s3files-dev-compute-sg"
-  }
+  name_prefix = "s3files-ecs-compute-"
+  description = "Compute resources that mount S3 Files"
+  vpc_id      = var.vpc_id
 }
 
+# NFS to the mount targets (the module allows this inbound from the compute security group)
 resource "aws_vpc_security_group_egress_rule" "compute_to_fs" {
   security_group_id            = aws_security_group.compute.id
   referenced_security_group_id = module.s3_files.security_group_id
@@ -189,37 +112,42 @@ resource "aws_vpc_security_group_egress_rule" "compute_to_fs" {
   description                  = "NFS to S3 Files mount targets"
 }
 
+# Outbound HTTPS so the compute resource can reach package repositories, ECR, and AWS APIs
+resource "aws_vpc_security_group_egress_rule" "compute_https" {
+  security_group_id = aws_security_group.compute.id
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 443
+  to_port           = 443
+  ip_protocol       = "tcp"
+  description       = "HTTPS egress"
+}
+
 # ------------------------------------------------------------------------------
-# S3 Files Module
+# S3 Files module: file system, mount targets, policies, sync, and monitoring
 # ------------------------------------------------------------------------------
 
 module "s3_files" {
   source = "../../modules/s3-files"
 
+  # The service role needs its permissions before the file system is created
   depends_on = [
-    aws_s3_bucket_versioning.test,
     aws_iam_role_policy.s3files_s3_access,
     aws_iam_role_policy.s3files_eventbridge,
   ]
 
-  environment = "dev"
-  bucket_arn  = aws_s3_bucket.test.arn
+  environment = var.environment
+  bucket_arn  = var.bucket_arn
   role_arn    = aws_iam_role.s3files_service.arn
-  vpc_id      = aws_vpc.this.id
-  subnet_ids  = aws_subnet.private[*].id
+  vpc_id      = var.vpc_id
+  subnet_ids  = var.private_subnet_ids
 
   compute_security_group_ids = [aws_security_group.compute.id]
 
-  # Dev uses SSE-S3 (no KMS key)
-  kms_key_arn = null
-
+  # Access point the compute resource mounts (enforces POSIX identity and a root directory)
   access_points = {
     app = {
-      path = "/app-data"
-      posix_user = {
-        uid = 1000
-        gid = 1000
-      }
+      path       = "/app-data"
+      posix_user = { uid = 1000, gid = 1000 }
       root_directory_creation_info = {
         owner_uid   = 1000
         owner_gid   = 1000
@@ -227,33 +155,4 @@ module "s3_files" {
       }
     }
   }
-
-  tags = {
-    CostCenter = "engineering"
-    Test       = "s3-files-blog"
-  }
-}
-
-# ------------------------------------------------------------------------------
-# Outputs
-# ------------------------------------------------------------------------------
-
-output "file_system_id" {
-  value = module.s3_files.file_system_id
-}
-
-output "bucket_name" {
-  value = aws_s3_bucket.test.id
-}
-
-output "mount_command" {
-  value = module.s3_files.mount_helper_command
-}
-
-output "security_group_id" {
-  value = module.s3_files.security_group_id
-}
-
-output "vpc_id" {
-  value = aws_vpc.this.id
 }

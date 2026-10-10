@@ -18,7 +18,7 @@ The module deploys the following resources:
 
 - AWS account with permissions to create S3 Files, VPC, IAM, and KMS resources
 - [Terraform](https://developer.hashicorp.com/terraform/install) >= 1.5.0
-- [AWS provider](https://registry.terraform.io/providers/hashicorp/aws/latest) >= 6.53.0 (tested with 6.66.0)
+- [AWS provider](https://registry.terraform.io/providers/hashicorp/aws/latest) >= 6.58.0 (tested with 6.58.0 and 6.68.0)
 - An S3 general purpose bucket with versioning enabled
 - A VPC with private subnets in at least two Availability Zones
 
@@ -40,14 +40,20 @@ The module deploys the following resources:
 │   └── prod/
 │       ├── main.tf           # Prod environment configuration (KMS, existing VPC)
 │       └── variables.tf
-├── examples/
-│   ├── ec2-s3files.tf         # EC2 instance with mount helper
-│   ├── ecs-s3files.tf         # ECS Fargate task with S3 Files volume
-│   ├── lambda-s3files.tf      # Lambda with file_system_config
-│   ├── templates/
-│   │   └── user-data.sh.tftpl # EC2 user data with mount helper
-│   └── lambda-src/
-│       └── index.py           # Sample Lambda handler
+├── examples/                  # Standalone root configurations (bring your own VPC and bucket)
+│   ├── ec2/                   # EC2 instance that mounts the file system at boot
+│   │   ├── main.tf            # Service role, compute security group, module call
+│   │   ├── ec2.tf             # Instance, instance profile, IAM role
+│   │   ├── templates/user-data.sh.tftpl
+│   │   ├── variables.tf · outputs.tf · versions.tf
+│   │   └── terraform.auto.tfvars.example
+│   ├── ecs/                   # ECS Fargate task with an S3 Files volume
+│   │   ├── main.tf · ecs.tf · variables.tf · outputs.tf · versions.tf
+│   │   └── terraform.auto.tfvars.example
+│   └── lambda/                # Lambda function with file_system_config
+│       ├── main.tf · lambda.tf · variables.tf · outputs.tf · versions.tf
+│       ├── lambda-src/index.py
+│       └── terraform.auto.tfvars.example
 ├── architecture-diagram.drawio # Architecture diagram (editable)
 ├── architecture-diagram.png    # Architecture diagram (rendered)
 ├── CONTRIBUTING.md
@@ -57,50 +63,79 @@ The module deploys the following resources:
 
 ## Quick Start
 
-### 1. Deploy the dev environment
+Choose one path.
+
+### Option A: Build everything from scratch (`environments/dev`)
+
+Creates its own VPC, private subnets, versioned S3 bucket, service role, and the S3 file system. No inputs required.
 
 ```bash
-cd environments/dev
+git clone https://github.com/aws-samples/sample-code-for-deploying-s3-files-with-terraform.git
+cd sample-code-for-deploying-s3-files-with-terraform/environments/dev
 
 terraform init
 terraform plan
 terraform apply
 ```
 
-The dev environment is fully self-contained — it creates its own VPC, subnets, S3 bucket, and IAM roles. No configuration required.
+### Option B: Use your existing VPC and bucket (`examples/<compute>`)
+
+Each folder under `examples/` is a complete root configuration: provider, service role, compute security group, the module call, and the compute resource. You provide:
+
+- A VPC with private subnets in at least two Availability Zones
+- Outbound access from those subnets (NAT gateway or VPC endpoints) so EC2 can install `amazon-efs-utils` and Fargate can pull the container image
+- An S3 general purpose bucket with versioning enabled
+
+```bash
+git clone https://github.com/aws-samples/sample-code-for-deploying-s3-files-with-terraform.git
+cd sample-code-for-deploying-s3-files-with-terraform/examples/ec2   # or ecs, lambda
+
+cp terraform.auto.tfvars.example terraform.auto.tfvars
+# Edit terraform.auto.tfvars with your VPC, subnet, and bucket values
+
+terraform init
+terraform plan
+terraform apply
+```
+
+Apply one example at a time per account and environment: the module names its alarms and dashboard after the environment.
+
+Verify each example:
+
+| Example | Verify |
+|---|---|
+| `ec2` | `$(terraform output -raw connect_command)`, then `df -h /mnt/s3files` and `echo hello \| sudo tee /mnt/s3files/test.txt` |
+| `ecs` | `aws logs tail $(terraform output -raw log_group_name)` shows the `ls -l /data` listing |
+| `lambda` | `$(terraform output -raw invoke_command)` returns the files under `/mnt/s3data` |
+
+Files written through the mount are exported to the bucket about 60 seconds after the last write.
+
+Timing notes from testing:
+
+- Mount targets take about 5 minutes to create. The examples make the EC2 instance, ECS service, and Lambda function wait for them.
+- The first Lambda invocation right after `terraform apply` can fail with `S3FilesMountTimeoutException`. Wait about a minute and invoke again.
+- `terraform destroy` of the Lambda example takes several minutes while Lambda detaches its network interfaces. If you then delete the VPC or subnets yourself, wait for those Lambda-managed interfaces to be released (often 20 minutes or more).
 
 > **Note:** Configure AWS credentials before running. Use `aws configure`, set `AWS_PROFILE`, or any [standard authentication method](https://registry.terraform.io/providers/hashicorp/aws/latest/docs#authentication-and-configuration).
 
-### 2. Mount on an EC2 instance
-
-After deployment, SSH into an instance and verify the mount:
-
-```bash
-df -h /mnt/s3files
-echo "Hello from EC2" | sudo tee /mnt/s3files/test.txt
-
-# Verify sync to S3 (exported ~60 s after the last write)
-aws s3 ls s3://my-app-data-dev/test.txt
-```
-
 ## Module Usage
+
+To call the module from your own configuration, reference it by Git tag. Every value below is a literal or a placeholder you replace; the service role must already exist (see `examples/ec2/main.tf` for a complete role definition).
 
 ```hcl
 module "s3_files" {
-  source = "./modules/s3-files"
+  source = "git::https://github.com/aws-samples/sample-code-for-deploying-s3-files-with-terraform.git//modules/s3-files?ref=v1.0.0"
 
   environment = "prod"
-  bucket_arn  = aws_s3_bucket.data.arn
-  role_arn    = aws_iam_role.s3files_service.arn
-  vpc_id      = "vpc-0abc123def456789a"
-  subnet_ids  = ["subnet-aaa111", "subnet-bbb222"]
+  bucket_arn  = "arn:aws:s3:::amzn-s3-demo-bucket"
+  role_arn    = "arn:aws:iam::111122223333:role/s3files-service"
+  vpc_id      = "vpc-0123456789abcdef0"
+  subnet_ids  = ["subnet-0123456789abcdef0", "subnet-0fedcba9876543210"]
 
-  compute_security_group_ids = [
-    aws_security_group.app_servers.id,
-  ]
+  compute_security_group_ids = ["sg-0123456789abcdef0"]
 
-  kms_key_arn            = aws_kms_key.s3files.arn
-  allowed_principal_arns = [aws_iam_role.app.arn]
+  kms_key_arn            = null # Set to your KMS key ARN to use a customer-managed key
+  allowed_principal_arns = ["arn:aws:iam::111122223333:role/app"]
 
   access_points = {
     app = {
@@ -171,16 +206,13 @@ This module implements the following security controls:
 | Encryption | SSE-S3 | Customer-managed KMS |
 | Mount targets | 2 AZs | 3 AZs |
 | File system policy | None | Explicit principal allowlist |
-| State backend | S3 | S3 + DynamoDB locking |
+| State backend | Local | S3 + DynamoDB locking |
 | Access points | 1 | Multiple |
 
 ## Cleaning Up
 
 ```bash
-# Unmount from compute resources first
-sudo umount /mnt/s3files
-
-# Destroy Terraform resources
+# From the folder you applied (environments/dev or examples/<compute>)
 terraform destroy
 ```
 
