@@ -9,7 +9,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket         = "my-terraform-state-bucket"
+    bucket         = "amzn-s3-demo-bucket-terraform-state"
     key            = "s3-files/prod/terraform.tfstate"
     region         = "us-east-1"
     dynamodb_table = "terraform-locks"
@@ -79,6 +79,10 @@ resource "aws_iam_role" "s3files_service" {
       Effect    = "Allow"
       Principal = { Service = "elasticfilesystem.amazonaws.com" }
       Action    = "sts:AssumeRole"
+      Condition = {
+        StringEquals = { "aws:SourceAccount" = data.aws_caller_identity.current.account_id }
+        ArnLike      = { "aws:SourceArn" = "arn:aws:s3files:${var.aws_region}:${data.aws_caller_identity.current.account_id}:file-system/*" }
+      }
     }]
   })
 }

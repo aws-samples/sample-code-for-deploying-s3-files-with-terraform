@@ -73,6 +73,16 @@ resource "aws_instance" "app" {
   subnet_id              = var.private_subnet_ids[0]
   vpc_security_group_ids = [aws_security_group.compute.id]
 
+  # Require IMDSv2 (session tokens) for instance metadata
+  metadata_options {
+    http_endpoint = "enabled"
+    http_tokens   = "required"
+  }
+
+  root_block_device {
+    encrypted = true
+  }
+
   # The boot-time mount needs the mount targets, which take several minutes to become available
   depends_on = [module.s3_files]
 

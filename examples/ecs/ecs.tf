@@ -21,7 +21,7 @@ resource "aws_ecs_cluster" "main" {
 
 resource "aws_cloudwatch_log_group" "app" {
   name              = "/ecs/s3files-ecs-${var.environment}"
-  retention_in_days = 7
+  retention_in_days = 365
 }
 
 resource "aws_ecs_task_definition" "app" {

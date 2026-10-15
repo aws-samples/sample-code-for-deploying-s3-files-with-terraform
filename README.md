@@ -2,6 +2,8 @@
 
 This repository contains a reusable Terraform module for deploying [Amazon S3 Files](https://aws.amazon.com/s3/files/) infrastructure, including file system creation, multi-AZ mount targets, security groups, IAM policies, synchronization configuration, and CloudWatch monitoring.
 
+> **Note:** This is sample code for demonstration and learning. Review and test it against your own security, compliance, and operational requirements before you use it in production.
+
 ## Architecture
 
 The module deploys the following resources:
@@ -124,7 +126,7 @@ To call the module from your own configuration, reference it by Git tag. Every v
 
 ```hcl
 module "s3_files" {
-  source = "git::https://github.com/aws-samples/sample-code-for-deploying-s3-files-with-terraform.git//modules/s3-files?ref=v1.0.0"
+  source = "git::https://github.com/aws-samples/sample-code-for-deploying-s3-files-with-terraform.git//modules/s3-files?ref=v1.0.1"
 
   environment = "prod"
   bucket_arn  = "arn:aws:s3:::amzn-s3-demo-bucket"
